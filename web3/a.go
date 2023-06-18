@@ -14,6 +14,7 @@ func main() {
 		fmt.Printf("前区块哈希：%x\n", block.PrevHash)
 		fmt.Printf("当前区块哈希：%x\n", block.Hash)
 		fmt.Printf("前区块数据：%s\n", block.Data)
+		fmt.Printf("Timestamp%d\n", block.Timestamp)
 		// fmt.Println("maxuefei test block")
 	}
 
