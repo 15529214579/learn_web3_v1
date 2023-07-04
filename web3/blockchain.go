@@ -14,7 +14,7 @@ func newBlockChain() *BlockChain {
 
 // 创建创世区块，在新建区块链时使用
 func GenesisBlock() *Block {
-	return NewBlock("创世区块建成,捞牛逼了", []byte{})
+	return NewBlock("创世区块建成,很强", []byte{})
 }
 
 // 5.添加区块
