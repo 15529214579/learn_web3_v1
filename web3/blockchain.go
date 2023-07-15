@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/boltdb/bolt"
@@ -42,8 +43,7 @@ func newBlockChain() *BlockChain {
 			genesisBlock := GenesisBlock()
 
 			//3. 写数据
-			//hash作为key， block的字节流作为value，尚未实现
-			bucket.Put(genesisBlock.Hash, genesisBlock.toByte())
+			bucket.Put(genesisBlock.Hash, genesisBlock.Serialize())
 			bucket.Put([]byte("LastHashKey"), genesisBlock.Hash)
 			lastHash = genesisBlock.Hash
 		} else {
@@ -70,6 +70,7 @@ func (bc *BlockChain) AddBlock(data string) {
 	// //添加到区块链数组中
 
 	//修改之后应该是向数据库中写入
+
 	db := bc.db
 	lastHash := bc.tail
 	db.Update(func(tx *bolt.Tx) error {
@@ -78,14 +79,14 @@ func (bc *BlockChain) AddBlock(data string) {
 			//没有抽屉，我们需要创建
 			bucket := tx.Bucket([]byte(blockBucket))
 			if bucket == nil {
-				log.Panic("bucket不应该为空,请检查输入文件名或者是否有open失败")
+				fmt.Printf("bucket不应该为空,请检查输入文件名或者是否有open失败")
 			}
 
 			block := NewBlock(data, lastHash)
 
 			//添加区块到区块链的数据库中
 			//hash作为key， block的字节流作为value，尚未实现
-			bucket.Put(block.Hash, block.toByte())
+			bucket.Put(block.Hash, block.Serialize())
 			bucket.Put([]byte("LastHashKey"), block.Hash)
 			lastHash = block.Hash
 		} else {

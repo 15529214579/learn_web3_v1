@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"log"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 // 1定义结构
@@ -58,6 +60,8 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 	hash, nonce := pow.Run()
 	block.Hash = hash
 	block.Nonce = nonce
+
+	block.Serialize()
 	return &block
 }
 
@@ -65,6 +69,20 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 func (block *Block) toByte() []byte {
 	//TODO maxuefei
 	return []byte{}
+}
+
+func (block *Block) Serialize() []byte {
+	bytes, err := sonic.Marshal(block)
+	if err != nil {
+		log.Print("序列化出错")
+	}
+	return bytes
+}
+
+func DeSerialize(data []byte) Block {
+	var block2 Block
+	sonic.Unmarshal(data, &block2)
+	return block2
 }
 
 // // 3.生成hash
