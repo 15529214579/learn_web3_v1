@@ -65,12 +65,6 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 	return &block
 }
 
-// 还没有做，这里需要将整个区块链进行hash操作
-func (block *Block) toByte() []byte {
-	//TODO maxuefei
-	return []byte{}
-}
-
 func (block *Block) Serialize() []byte {
 	bytes, err := sonic.Marshal(block)
 	if err != nil {
