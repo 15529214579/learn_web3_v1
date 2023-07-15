@@ -40,6 +40,7 @@ func (pow *ProofOfWork) Run() ([]byte, uint64) {
 	var nonce uint64
 	//block := pow.block
 	var hash [32]byte
+	fmt.Print("开始挖矿喽！")
 
 	for {
 

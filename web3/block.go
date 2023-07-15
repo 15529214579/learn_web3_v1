@@ -61,6 +61,12 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 	return &block
 }
 
+// 还没有做，这里需要将整个区块链进行hash操作
+func (block *Block) toByte() []byte {
+	//TODO maxuefei
+	return []byte{}
+}
+
 // // 3.生成hash
 // func (block *Block) SetHash() {
 // 	var blockInfo []byte
