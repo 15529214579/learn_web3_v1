@@ -19,7 +19,7 @@ type BlockChain struct {
 const blockChainDb = "blockChain.db"
 const blockBucket = "blockBucket"
 
-func newBlockChain() *BlockChain {
+func newBlockChain(address string) *BlockChain {
 	// genesisBlock := GenesisBlock()
 	// return &BlockChain{
 	// 	block: []*Block{genesisBlock},
@@ -40,7 +40,7 @@ func newBlockChain() *BlockChain {
 			}
 
 			//创建一个创世块，并作为第一个区块添加到区块链中
-			genesisBlock := GenesisBlock()
+			genesisBlock := GenesisBlock(address)
 
 			//3. 写数据
 			bucket.Put(genesisBlock.Hash, genesisBlock.Serialize())
@@ -55,12 +55,13 @@ func newBlockChain() *BlockChain {
 }
 
 // 创建创世区块，在新建区块链时使用
-func GenesisBlock() *Block {
-	return NewBlock("创世区块建成,很强", []byte{})
+func GenesisBlock(address string) *Block {
+	coinbase := NewCoinbaseTX(address, "创世区块建成,很强")
+	return NewBlock([]*Transaction{coinbase}, []byte{})
 }
 
 // 5.添加区块
-func (bc *BlockChain) AddBlock(data string) {
+func (bc *BlockChain) AddBlock(txs []*Transaction) {
 	db := bc.db
 	lastHash := bc.tail
 	db.Update(func(tx *bolt.Tx) error {
@@ -69,7 +70,7 @@ func (bc *BlockChain) AddBlock(data string) {
 			fmt.Printf("bucket不应该为空,请检查输入文件名或者是否有open失败")
 		}
 
-		block := NewBlock(data, lastHash)
+		block := NewBlock(txs, lastHash)
 
 		//添加区块到区块链的数据库中
 		//hash作为key， block的字节流作为value，尚未实现
@@ -80,4 +81,39 @@ func (bc *BlockChain) AddBlock(data string) {
 		bc.tail = block.Hash
 		return nil
 	})
+}
+
+// todo maxuefei 这里还没实现
+func (bc *BlockChain) findUTXOs(address string) []TXOutput {
+	var UTXO []TXOutput
+	it := bc.NewIterator()
+	spentOutputs := make(map[string][]int64)
+
+	for {
+		//遍历区块链上的区块
+		block := it.Next()
+		//遍历区块上的交易
+		for _, tx := range block.Transactions {
+			//遍历output
+			for _, output := range tx.TXOutputs {
+				fmt.Printf("current txid : %x\n", tx.TXID)
+				if output.PublicKeyHash == address {
+					UTXO = append(UTXO, output)
+				}
+			}
+			//遍历input
+
+			for _, input := range tx.TXInputs {
+				if input.Sig == address {
+					indexArray := spentOutputs[string(input.TXid)]
+					indexArray = append(indexArray, input.Index)
+				}
+			}
+
+		}
+		//找到和自己有关的
+
+	}
+
+	return UTXO
 }

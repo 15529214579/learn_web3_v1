@@ -25,8 +25,9 @@ type Block struct {
 	Nonce uint64
 	//a 当前区块hash正常比特币区块中没有当前区块的哈希，这样写是为了方便，当前区块的哈希不存在在区块链中，存在另外的地方，节省区块的空间
 	Hash []byte
-	//b 数据
-	Data []byte
+	// //b 数据
+	// Data []byte
+	Transactions []*Transaction
 }
 
 //补充区块字段
@@ -45,7 +46,7 @@ func Uint64ToByte(num uint64) []byte {
 }
 
 // 2.创建区块
-func NewBlock(data string, prevBlockHash []byte) *Block {
+func NewBlock(txs []*Transaction, prevBlockHash []byte) *Block {
 	block := Block{
 		Version:    00,
 		PrevHash:   prevBlockHash,
@@ -54,12 +55,14 @@ func NewBlock(data string, prevBlockHash []byte) *Block {
 		Difficulty: 0, //先随便设置一个值
 		Nonce:      0,
 		Hash:       []byte{},
-		Data:       []byte(data),
+		// Data:       []byte(data),
+		Transactions: txs,
 	}
 	pow := NewProofOfWork(&block)
 	hash, nonce := pow.Run()
 	block.Hash = hash
 	block.Nonce = nonce
+	block.MerkelRoot = block.MakeMerkelRoot()
 
 	block.Serialize()
 	return &block
@@ -77,6 +80,13 @@ func DeSerialize(data []byte) Block {
 	var block2 Block
 	sonic.Unmarshal(data, &block2)
 	return block2
+}
+
+// 模拟梅克尔根，只是对交易的数据做简单的拼接，而不做二叉树处理！
+func (block *Block) MakeMerkelRoot() []byte {
+
+	//TODO
+	return []byte{}
 }
 
 // // 3.生成hash

@@ -77,7 +77,8 @@ func (pow *ProofOfWork) PrepareData(nonce uint64) []byte {
 		Uint64ToByte(block.Timestamp),
 		Uint64ToByte(block.Difficulty),
 		Uint64ToByte(nonce),
-		block.Data,
+		// block.Data,
+		//只对区块头做哈希
 	}
 	blockInfo := bytes.Join(tmp, []byte{})
 	return blockInfo
