@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/binary"
 	"log"
 	"time"
@@ -85,8 +86,13 @@ func DeSerialize(data []byte) Block {
 // 模拟梅克尔根，只是对交易的数据做简单的拼接，而不做二叉树处理！
 func (block *Block) MakeMerkelRoot() []byte {
 
-	//TODO
-	return []byte{}
+	var info []byte
+	for _, tx := range block.Transactions {
+		info = append(info, tx.TXID...)
+	}
+
+	hash := sha256.Sum256(info)
+	return hash[:]
 }
 
 // // 3.生成hash

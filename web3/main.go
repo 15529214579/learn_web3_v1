@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	bc := newBlockChain("mcoin")
+	bc := newBlockChain("张三")
 	cli := CLI{bc}
 	cli.Run()
 

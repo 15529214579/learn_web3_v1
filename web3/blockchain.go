@@ -83,37 +83,103 @@ func (bc *BlockChain) AddBlock(txs []*Transaction) {
 	})
 }
 
-// todo maxuefei 这里还没实现
+// 这个是查询余额的时候调用的,找到当前地址的所有utxo
 func (bc *BlockChain) findUTXOs(address string) []TXOutput {
 	var UTXO []TXOutput
-	it := bc.NewIterator()
+	txs := bc.FindUTXOTransactions(address)
+	for _, tx := range txs {
+		for _, output := range tx.TXOutputs {
+			if address == output.PublicKeyHash {
+				UTXO = append(UTXO, output)
+			}
+		}
+	}
+	return UTXO
+}
+
+func (bc *BlockChain) FindNeedUTXOs(from string, amount float64) (map[string][]uint64, float64) {
+	//找到的合理的utxos集合
+	utxos := make(map[string][]uint64)
+	var calc float64
+
+	txs := bc.FindUTXOTransactions(from)
+
+	for _, tx := range txs {
+		for i, output := range tx.TXOutputs {
+			if from == output.PublicKeyHash {
+
+				utxos[string(tx.TXID)] = append(utxos[string(tx.TXID)], uint64(i))
+				calc += output.Value
+
+				if calc >= amount {
+					//break
+					fmt.Printf("找到了满足的金额：%f\n", calc)
+					return utxos, calc
+				}
+			} else {
+				fmt.Printf("不满足转账金额,当前总额：%f， 目标金额: %f\n", calc, amount)
+			}
+		}
+	}
+	return utxos, calc
+}
+
+func (bc *BlockChain) FindUTXOTransactions(address string) []*Transaction {
+	var txs []*Transaction
+	//我们定义一个map来保存消费过的output，key是这个output的交易id，value是这个交易中索引的数组
+	//map[交易id][]int64
 	spentOutputs := make(map[string][]int64)
 
+	//创建迭代器
+	it := bc.NewIterator()
+
 	for {
-		//遍历区块链上的区块
+		//1.遍历区块
 		block := it.Next()
-		//遍历区块上的交易
+
+		//2. 遍历交易
 		for _, tx := range block.Transactions {
-			//遍历output
-			for _, output := range tx.TXOutputs {
-				fmt.Printf("current txid : %x\n", tx.TXID)
+
+		OUTPUT:
+			//3. 遍历output，找到和自己相关的utxo(在添加output之前检查一下是否已经消耗过)
+			//	i : 0, 1, 2, 3
+			for i, output := range tx.TXOutputs {
+				if spentOutputs[string(tx.TXID)] != nil {
+					for _, j := range spentOutputs[string(tx.TXID)] {
+						//[]int64{0, 1} , j : 0, 1
+						if int64(i) == j {
+							//当前准备添加output已经消耗过了，不要再加了
+							continue OUTPUT
+						}
+					}
+				}
+
+				//这个output和我们目标的地址相同，满足条件，加到返回UTXO数组中
 				if output.PublicKeyHash == address {
-					UTXO = append(UTXO, output)
-				}
-			}
-			//遍历input
-
-			for _, input := range tx.TXInputs {
-				if input.Sig == address {
-					indexArray := spentOutputs[string(input.TXid)]
-					indexArray = append(indexArray, input.Index)
+					txs = append(txs, tx)
+				} else {
 				}
 			}
 
+			//如果当前交易是挖矿交易的话，那么不做遍历，直接跳过
+
+			if !tx.IsCoinbase() {
+				//4. 遍历input，找到自己花费过的utxo的集合(把自己消耗过的标示出来)
+				for _, input := range tx.TXInputs {
+					//判断一下当前这个input和目标（李四）是否一致，如果相同，说明这个是李四消耗过的output,就加进来
+					if input.Sig == address {
+						spentOutputs[string(input.TXid)] = append(spentOutputs[string(input.TXid)], input.Index)
+					}
+				}
+			} else {
+				//fmt.Printf("这是coinbase，不做input遍历！")
+			}
 		}
-		//找到和自己有关的
 
+		if len(block.PrevHash) == 0 {
+			break
+		}
 	}
 
-	return UTXO
+	return txs
 }
