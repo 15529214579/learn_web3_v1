@@ -68,13 +68,7 @@ func (cli *CLI) Send(from, to string, amount float64, miner, data string) {
 }
 
 func (cli *CLI) NewWallet() {
-	// wallet := NewWallet()
-	// address := wallet.NewAddress()
-	// fmt.Printf("私钥：%v\n", wallet.Private)
-	// fmt.Printf("公钥：%v\n", wallet.PubKey)
-	// fmt.Printf("地址%v\n", address)
 	ws := NewWallets()
-	for address := range ws.WalletsMap {
-		fmt.Printf("地址%v\n", address)
-	}
+	address := ws.CreateWallet()
+	fmt.Printf("地址：%s\n", address)
 }
