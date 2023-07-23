@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/bytedance/sonic"
 )
 
@@ -20,13 +21,16 @@ type Transaction struct {
 type TXInput struct {
 	TXid  []byte //引用的输出交易id
 	Index int64  //引用的输出索引值
-	Sig   string //解锁脚本
+	// Sig   string //解锁脚本
+	Signature []byte //rs拼接成的数字签名
+	PubKey    []byte //存储的xy拼接后的数据
+
 }
 
 // 交易输出
 type TXOutput struct {
 	Value         float64 //转账的金额
-	PublicKeyHash string  //锁定脚本，先用公钥哈希来模拟（后期要替换成脚本黑盒）
+	PublicKeyHash []byte  //收款方的公钥哈希
 }
 
 // 设置交易id
@@ -42,11 +46,11 @@ func (tx *Transaction) SetHash() {
 
 // 创建创世区块
 func NewCoinbaseTX(address string, data string) *Transaction {
-	//没有index，没有input交易id,解锁脚本先用data代替
-	input := TXInput{[]byte{}, -1, data}
-	output := TXOutput{reward, address}
+	//矿工挖矿时不需要指定签名
+	input := TXInput{[]byte{}, -1, nil, []byte(data)}
+	output := NewTXOutput(reward, address)
 
-	tx := Transaction{[]byte{}, []TXInput{input}, []TXOutput{output}}
+	tx := Transaction{[]byte{}, []TXInput{input}, []TXOutput{*output}}
 	tx.SetHash()
 
 	return &tx
@@ -65,7 +69,21 @@ func (tx *Transaction) IsCoinbase() bool {
 }
 
 func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transaction {
-	utxos, resValue := bc.FindNeedUTXOs(from, amount)
+	//先打开钱包
+	ws := NewWallets()
+
+	wallet := ws.WalletsMap[from]
+	if wallet == nil {
+		fmt.Printf("打开钱包地址失效,交易创建失败")
+		return nil
+	}
+
+	pubkey := wallet.PubKey
+	//privateKey := wallet.Private
+	pubkeyHash := HashPubKey(pubkey)
+
+	//todo maxuefei FindNeedUTXOs也需要同步修改
+	utxos, resValue := bc.FindNeedUTXOs(pubkeyHash, amount)
 	if resValue < amount {
 		fmt.Printf("余额不足, 交易失败！")
 		return nil
@@ -77,13 +95,13 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 	//创建交易输入，将utxo转化成inputs
 	for id, indexArray := range utxos {
 		for _, i := range indexArray {
-			input := TXInput{[]byte(id), int64(i), from}
+			input := TXInput{[]byte(id), int64(i), nil, pubkey}
 			inputs = append(inputs, input)
 		}
 	}
 	//创建交易输出
-	output := TXOutput{amount, to}
-	outputs = append(outputs, output)
+	output := NewTXOutput(amount, to)
+	outputs = append(outputs, *output)
 
 	//找零
 	if resValue > amount {
@@ -93,4 +111,28 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 	tx := Transaction{[]byte{}, inputs, outputs}
 	tx.SetHash()
 	return &tx
+}
+
+// 由于现在存储的字段是地址的公钥哈希，所以无法直接创建TXOutput，
+// 为了能够得到公钥哈希，我们需要处理一下，写一个Lock函数
+func (output *TXOutput) Lock(address string) {
+	//1. 解码
+	//2. 截取出公钥哈希：去除version（1字节），去除校验码（4字节）
+	addressByte := base58.Decode(address) //25字节
+	len := len(addressByte)
+
+	pubKeyHash := addressByte[1 : len-4]
+
+	//真正的锁定动作！！！！！
+	output.PublicKeyHash = pubKeyHash
+}
+
+// 给TXOutput提供一个创建的方法，否则无法调用Lock
+func NewTXOutput(value float64, address string) *TXOutput {
+	output := TXOutput{
+		Value: value,
+	}
+
+	output.Lock(address)
+	return &output
 }
