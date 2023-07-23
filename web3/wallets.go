@@ -1,11 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 
 	"github.com/bytedance/sonic"
 )
+
+const walletFile = "wallet.dat"
 
 //定一个wallets结构，它保存所有的wallet以及它的地址
 
@@ -16,7 +20,7 @@ type Wallets struct {
 func NewWallets() *Wallets {
 	//只是创建钱包s，具体的添加地址对应哪个钱包放到CreateWallet中
 	var ws Wallets
-	// wallets.WalletsMap = make(map[string]*Wallet)
+	ws.WalletsMap = make(map[string]*Wallet)
 	ws.loadFile()
 	return &ws
 }
@@ -36,10 +40,15 @@ func (ws *Wallets) saveToFile() {
 		log.Panic(err)
 	}
 
-	ioutil.WriteFile("wallet.dat", bytes, 0600)
+	ioutil.WriteFile(walletFile, bytes, 0600)
 }
 func (ws *Wallets) loadFile() {
-	content, err := ioutil.ReadFile("wallet.dat")
+	_, err := os.Stat(walletFile)
+	if os.IsNotExist(err) {
+		fmt.Printf("本地钱包文件不存在")
+		return
+	}
+	content, err := ioutil.ReadFile(walletFile)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -47,4 +56,13 @@ func (ws *Wallets) loadFile() {
 	var wsLocalFile Wallets
 	sonic.Unmarshal(content, &wsLocalFile)
 	ws.WalletsMap = wsLocalFile.WalletsMap
+}
+
+func (ws *Wallets) ListAddresses() []string {
+	var addresses []string
+	for address := range ws.WalletsMap {
+		addresses = append(addresses, address)
+	}
+
+	return addresses
 }
