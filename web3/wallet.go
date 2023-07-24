@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"fmt"
 	"log"
 
 	"github.com/btcsuite/btcutil/base58"
@@ -58,4 +60,26 @@ func CheckSum(data []byte) []byte {
 	//返回前4位校验码
 	checkCode := hash2[:4]
 	return checkCode
+}
+
+func IsValidAddress(address string) bool {
+	//1. 解码
+	addressByte := base58.Decode(address)
+
+	if len(addressByte) < 4 {
+		return false
+	}
+
+	//2. 取数据
+	payload := addressByte[:len(addressByte)-4]
+	checksum1 := addressByte[len(addressByte)-4:]
+
+	//3. 做checksum函数
+	checksum2 := CheckSum(payload)
+
+	fmt.Printf("checksum1 : %x\n", checksum1)
+	fmt.Printf("checksum2 : %x\n", checksum2)
+
+	//4. 比较
+	return bytes.Equal(checksum1, checksum2)
 }

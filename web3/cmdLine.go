@@ -41,6 +41,10 @@ func (cli *CLI) PrinBlockChain() {
 
 func (cli *CLI) getBalance(address string) {
 	// 1.对地址做校验，如果是非法地址就不能获取余额
+	if !IsInvalidAddress(address) {
+		fmt.Printf("地址无效: %s\n", address)
+		return
+	}
 	// 2.通过地址获取公钥哈希
 	publicKeyHash := GetPubKeyFromAddress(address)
 	utxos := cli.bc.findUTXOs(publicKeyHash)
@@ -58,6 +62,14 @@ func (cli *CLI) Send(from, to string, amount float64, miner, data string) {
 	fmt.Printf("amount : %f\n", amount)
 	fmt.Printf("miner : %s\n", miner)
 	fmt.Printf("data : %s\n", data)
+	if !IsInvalidAddress(from) {
+		fmt.Printf("地址无效: %s\n", from)
+		return
+	}
+	if !IsInvalidAddress(to) {
+		fmt.Printf("地址无效: %s\n", to)
+		return
+	}
 
 	//创建挖矿交易
 	coinbase := NewCoinbaseTX(miner, data)
