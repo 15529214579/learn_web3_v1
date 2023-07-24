@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/btcsuite/btcutil/base58"
+)
 
 func (cli *CLI) AddBlock(data string) {
 	// cli.bc.AddBlock(data)
@@ -26,7 +30,7 @@ func (cli *CLI) PrinBlockChain() {
 		fmt.Printf("难度值(随便写的）: %d\n", block.Difficulty)
 		fmt.Printf("随机数 : %d\n", block.Nonce)
 		fmt.Printf("当前区块哈希值: %x\n", block.Hash)
-		fmt.Printf("区块数据 :%s\n", block.Transactions[0].TXInputs[0].Sig)
+		fmt.Printf("区块数据 :%s\n", block.Transactions[0].TXInputs[0].PubKey)
 
 		if len(block.PrevHash) == 0 {
 			fmt.Printf("区块链遍历结束！")
@@ -36,13 +40,16 @@ func (cli *CLI) PrinBlockChain() {
 }
 
 func (cli *CLI) getBalance(address string) {
-	utxos := cli.bc.findUTXOs(address)
-
+	// 1.对地址做校验，如果是非法地址就不能获取余额
+	// 2.通过地址获取公钥哈希
+	publicKeyHash := GetPubKeyFromAddress(address)
+	utxos := cli.bc.findUTXOs(publicKeyHash)
 	total := 0.0
 	for _, utxo := range utxos {
 		total += utxo.Value
 	}
 	fmt.Printf("\"%s\"的余额为：%f\n", address, total)
+
 }
 
 func (cli *CLI) Send(from, to string, amount float64, miner, data string) {
@@ -79,4 +86,12 @@ func (cli *CLI) ListAddresses() {
 	for _, address := range addresses {
 		fmt.Printf("地址:%s\n", address)
 	}
+}
+
+func GetPubKeyFromAddress(address string) []byte {
+	addrDec := base58.Decode(address)
+	lenAddr := len(addrDec)
+	pubKeyHash := addrDec[1 : lenAddr-4]
+
+	return pubKeyHash
 }

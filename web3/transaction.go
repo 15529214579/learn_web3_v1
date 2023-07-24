@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/bytedance/sonic"
 )
 
@@ -105,7 +104,9 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 
 	//找零
 	if resValue > amount {
-		outputs = append(outputs, TXOutput{resValue - amount, from})
+		// outputs = append(outputs, TXOutput{resValue - amount, from})
+		output = NewTXOutput(resValue-amount, from)
+		outputs = append(outputs, *output)
 	}
 
 	tx := Transaction{[]byte{}, inputs, outputs}
@@ -116,15 +117,7 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 // 由于现在存储的字段是地址的公钥哈希，所以无法直接创建TXOutput，
 // 为了能够得到公钥哈希，我们需要处理一下，写一个Lock函数
 func (output *TXOutput) Lock(address string) {
-	//1. 解码
-	//2. 截取出公钥哈希：去除version（1字节），去除校验码（4字节）
-	addressByte := base58.Decode(address) //25字节
-	len := len(addressByte)
-
-	pubKeyHash := addressByte[1 : len-4]
-
-	//真正的锁定动作！！！！！
-	output.PublicKeyHash = pubKeyHash
+	output.PublicKeyHash = GetPubKeyFromAddress(address)
 }
 
 // 给TXOutput提供一个创建的方法，否则无法调用Lock
