@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"log"
@@ -78,7 +80,7 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 	}
 
 	pubkey := wallet.PubKey
-	//privateKey := wallet.Private
+	privateKey := wallet.Private
 	pubkeyHash := HashPubKey(pubkey)
 
 	//todo maxuefei FindNeedUTXOs也需要同步修改
@@ -111,6 +113,9 @@ func NewTransaction(from, to string, amount float64, bc *BlockChain) *Transactio
 
 	tx := Transaction{[]byte{}, inputs, outputs}
 	tx.SetHash()
+
+	bc.SignTransaction(&tx, privateKey)
+
 	return &tx
 }
 
@@ -128,4 +133,53 @@ func NewTXOutput(value float64, address string) *TXOutput {
 
 	output.Lock(address)
 	return &output
+}
+
+func (tx *Transaction) Sign(privateKey *ecdsa.PrivateKey, prevTXs map[string]Transaction) {
+	//todo具体的签名操作
+
+	//创建交易副本
+	txCopy := tx.TrimmedCopy()
+	//循环遍历inputs，得到input索引的output公钥哈希
+	for i, input := range txCopy.TXInputs {
+		prevTX := prevTXs[string(input.TXid)]
+		if len(prevTX.TXID) == 0 {
+			log.Panic("引用的交易无效")
+		}
+		//不要对input进行赋值，这是一个副本，要对txCopy.TXInputs[xx]进行操作，否则无法把pubKeyHash传进来
+		txCopy.TXInputs[i].PubKey = prevTX.TXOutputs[input.Index].PublicKeyHash
+		//所需要的三个数据都具备了，开始做哈希处理
+		//3. 生成要签名的数据。要签名的数据一定是哈希值
+		//a. 我们对每一个input都要签名一次，签名的数据是由当前input引用的output的哈希+当前的outputs（都承载在当前这个txCopy里面）
+		//b. 要对这个拼好的txCopy进行哈希处理，SetHash得到TXID，这个TXID就是我们要签名最终数据。
+		txCopy.SetHash()
+
+		//还原，以免影响后面input的签名
+		txCopy.TXInputs[i].PubKey = nil
+		signDataHash := txCopy.TXID
+		//4. 执行签名动作得到r,s字节流
+		r, s, err := ecdsa.Sign(rand.Reader, privateKey, signDataHash)
+		if err != nil {
+			log.Panic(err)
+		}
+
+		//5. 放到我们所签名的input的Signature中
+		signature := append(r.Bytes(), s.Bytes()...)
+		tx.TXInputs[i].Signature = signature
+	}
+}
+
+func (tx *Transaction) TrimmedCopy() Transaction {
+	var inputs []TXInput
+	var outputs []TXOutput
+
+	for _, input := range tx.TXInputs {
+		inputs = append(inputs, TXInput{input.TXid, input.Index, nil, nil})
+	}
+
+	for _, output := range tx.TXOutputs {
+		outputs = append(outputs, output)
+	}
+
+	return Transaction{tx.TXID, inputs, outputs}
 }

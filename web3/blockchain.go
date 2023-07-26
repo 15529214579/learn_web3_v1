@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"fmt"
 	"log"
 
@@ -184,4 +185,44 @@ func (bc *BlockChain) FindUTXOTransactions(publicKeyHash []byte) []*Transaction 
 	}
 
 	return txs
+}
+
+func (bc *BlockChain) FindTransactionByTXid(id []byte) (Transaction, error) {
+	it := bc.NewIterator()
+
+	for {
+		block := it.Next()
+		for _, tx := range block.Transactions {
+			if bytes.Equal(tx.TXID, id) {
+				return *tx, nil
+			}
+		}
+		if len(block.PrevHash) == 0 {
+			fmt.Printf("区块遍历结束!\n")
+			break
+		}
+	}
+	return Transaction{}, nil
+}
+
+func (bc *BlockChain) SignTransaction(tx *Transaction, privateKey *ecdsa.PrivateKey) {
+	//签名，交易创建的最后进行签名
+	prevTXs := make(map[string]Transaction)
+
+	//找到所有引用的交易
+	//1. 根据inputs来找，有多少input, 就遍历多少次
+	//2. 找到目标交易，（根据TXid来找）
+	//3. 添加到prevTXs里面
+	for _, input := range tx.TXInputs {
+		//根据id查找交易本身，需要遍历整个区块链
+		tx, err := bc.FindTransactionByTXid(input.TXid)
+
+		if err != nil {
+			log.Panic(err)
+		}
+
+		prevTXs[string(input.TXid)] = tx
+	}
+
+	tx.Sign(privateKey, prevTXs)
 }
