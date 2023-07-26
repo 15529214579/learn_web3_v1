@@ -2,10 +2,12 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"log"
+	"math/big"
 
 	"github.com/bytedance/sonic"
 )
@@ -136,7 +138,9 @@ func NewTXOutput(value float64, address string) *TXOutput {
 }
 
 func (tx *Transaction) Sign(privateKey *ecdsa.PrivateKey, prevTXs map[string]Transaction) {
-	//todo具体的签名操作
+	if tx.IsCoinbase() {
+		return
+	}
 
 	//创建交易副本
 	txCopy := tx.TrimmedCopy()
@@ -182,4 +186,84 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 	}
 
 	return Transaction{tx.TXID, inputs, outputs}
+}
+
+//分析校验：
+//所需要的数据：公钥，数据(txCopy，生成哈希), 签名
+//我们要对每一个签名过得input进行校验
+
+func (tx *Transaction) Verify(prevTXs map[string]Transaction) bool {
+	if tx.IsCoinbase() {
+		return true
+	}
+
+	//1. 得到签名的数据
+	txCopy := tx.TrimmedCopy()
+
+	for i, input := range tx.TXInputs {
+		prevTX := prevTXs[string(input.TXid)]
+		if len(prevTX.TXID) == 0 {
+			log.Panic("引用的交易无效")
+		}
+
+		txCopy.TXInputs[i].PubKey = prevTX.TXOutputs[input.Index].PublicKeyHash
+		txCopy.SetHash()
+		dataHash := txCopy.TXID
+		//2. 得到Signature, 反推会r,s
+		signature := input.Signature //拆，r,s
+		//3. 拆解PubKey, X, Y 得到原生公钥
+		pubKey := input.PubKey //拆，X, Y
+
+		//1. 定义两个辅助的big.int
+		r := big.Int{}
+		s := big.Int{}
+
+		//2. 拆分我们signature，平均分，前半部分给r, 后半部分给s
+		r.SetBytes(signature[:len(signature)/2])
+		s.SetBytes(signature[len(signature)/2:])
+
+		//a. 定义两个辅助的big.int
+		X := big.Int{}
+		Y := big.Int{}
+
+		//b. pubKey，平均分，前半部分给X, 后半部分给Y
+		X.SetBytes(pubKey[:len(pubKey)/2])
+		Y.SetBytes(pubKey[len(pubKey)/2:])
+
+		pubKeyOrigin := ecdsa.PublicKey{elliptic.P256(), &X, &Y}
+
+		//4. Verify
+		if !ecdsa.Verify(&pubKeyOrigin, dataHash, &r, &s) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (bc *BlockChain) VerifyTransaction(tx *Transaction) bool {
+	if tx.IsCoinbase() {
+		return true
+	}
+
+	//签名，交易创建的最后进行签名
+	prevTXs := make(map[string]Transaction)
+
+	//找到所有引用的交易
+	//1. 根据inputs来找，有多少input, 就遍历多少次
+	//2. 找到目标交易，（根据TXid来找）
+	//3. 添加到prevTXs里面
+	for _, input := range tx.TXInputs {
+		//根据id查找交易本身，需要遍历整个区块链
+		tx, err := bc.FindTransactionByTXid(input.TXid)
+
+		if err != nil {
+			log.Panic(err)
+		}
+
+		prevTXs[string(input.TXid)] = tx
+
+	}
+
+	return tx.Verify(prevTXs)
 }

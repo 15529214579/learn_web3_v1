@@ -64,6 +64,14 @@ func GenesisBlock(address string) *Block {
 
 // 5.添加区块
 func (bc *BlockChain) AddBlock(txs []*Transaction) {
+	//校验是否为合法交易
+	for _, tx := range txs {
+		if !bc.VerifyTransaction(tx) {
+			fmt.Printf("矿工发现无效交易!")
+			return
+		}
+	}
+
 	db := bc.db
 	lastHash := bc.tail
 	db.Update(func(tx *bolt.Tx) error {
